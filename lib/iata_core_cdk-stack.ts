@@ -28,6 +28,7 @@ export class IataCoreCdkStack extends cdk.Stack {
       actionName: `${appName}CDK-GitHub`,
       owner: "unoah",
       repo: `${appName}CDK`,
+      branch: "main",
       oauthToken: cdk.SecretValue.secretsManager("github-token"),
       output: corePipelineSourceArtifacts,
       trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
