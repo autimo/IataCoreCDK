@@ -1,38 +1,41 @@
-import * as cdk from '@aws-cdk/core';
+import * as cdk from "@aws-cdk/core";
 import * as codePipeline from "@aws-cdk/aws-codepipeline";
 import * as codeBuild from "@aws-cdk/aws-codebuild";
 import * as codePipelineActions from "@aws-cdk/aws-codepipeline-actions";
+import * as lambda from "@aws-cdk/aws-lambda";
+import { AirportMgrStack } from "./airport-mgr";
 
 export class IataCoreCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const appName: string = 'IataCore'
+    const appName = "IataCore";
 
     // The code that defines your stack goes here
     const corePipeline = new codePipeline.Pipeline(
-        this,
-        `${appName}-Pipeline`,
-        {
-          pipelineName: `${appName}-Pipeline`,
-          restartExecutionOnUpdate: true,
-          crossAccountKeys: true,
-        }
+      this,
+      `${appName}-Pipeline`,
+      {
+        pipelineName: `${appName}-Pipeline`,
+        restartExecutionOnUpdate: true,
+        crossAccountKeys: true,
+      }
     );
     const corePipelineSourceArtifacts = new codePipeline.Artifact();
 
-
     /* Pipeline Source Stage Actions */
     // Pipeline source action
-    const corePipelineSourceAction = new codePipelineActions.GitHubSourceAction({
-      actionName: `${appName}CDK-GitHub`,
-      owner: "unoah",
-      repo: `${appName}CDK`,
-      branch: "main",
-      oauthToken: cdk.SecretValue.secretsManager("github-token"),
-      output: corePipelineSourceArtifacts,
-      trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
-    });
+    const corePipelineSourceAction = new codePipelineActions.GitHubSourceAction(
+      {
+        actionName: `${appName}CDK-GitHub`,
+        owner: "unoah",
+        repo: `${appName}CDK`,
+        branch: "main",
+        oauthToken: cdk.SecretValue.secretsManager("github-token"),
+        output: corePipelineSourceArtifacts,
+        trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
+      }
+    );
 
     const airportMgrSourceArtifacts = new codePipeline.Artifact();
     const airportMgrSourceAction = new codePipelineActions.GitHubSourceAction({
@@ -43,87 +46,118 @@ export class IataCoreCdkStack extends cdk.Stack {
       oauthToken: cdk.SecretValue.secretsManager("github-token"),
       output: airportMgrSourceArtifacts,
       trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
-    })
+    });
 
     /* Pipeline Source Stage */
     corePipeline.addStage({
       stageName: "Source",
-      actions: [
-        corePipelineSourceAction,
-        airportMgrSourceAction
-      ],
+      actions: [corePipelineSourceAction, airportMgrSourceAction],
     });
 
     /* Pipeline Build Stage Actions */
     // Pipeline build action
-    const corePipelineBuildOutput = new codePipeline.Artifact("CorePipelineBuildArtifact");
+    const corePipelineBuildOutput = new codePipeline.Artifact(
+      "CorePipelineBuildArtifact"
+    );
     const corePipelineBuildAction = new codePipelineActions.CodeBuildAction({
       actionName: `${appName}CDK-CodeBuild`,
-      project: new codeBuild.PipelineProject(this, `${appName}CDK-PipelineProject`, {
-        projectName: `${appName}CDK-PipelineProject`,
-        buildSpec: codeBuild.BuildSpec.fromObject({
-          version: "0.2",
-          phases: {
-            install: {
-              "runtime-versions": {
-                nodejs: 14,
+      project: new codeBuild.PipelineProject(
+        this,
+        `${appName}CDK-PipelineProject`,
+        {
+          projectName: `${appName}CDK-PipelineProject`,
+          buildSpec: codeBuild.BuildSpec.fromObject({
+            version: "0.2",
+            phases: {
+              install: {
+                "runtime-versions": {
+                  nodejs: 14,
+                },
+                commands: ["npm ci"],
               },
-              commands: ["npm ci"],
+              build: {
+                commands: [
+                  "ls -Al",
+                  "npm run build",
+                  "npm run cdk synth",
+                  "ls -Al",
+                  "ls -Al cdk.out/",
+                ],
+              },
             },
-            build: {
-              commands: [
-                "ls -Al",
-                "npm run build",
-                "npm run cdk synth",
-                "ls -Al",
-                "ls -Al cdk.out/"
-              ],
+            artifacts: {
+              "base-directory": "cdk.out",
+              files: "**/*",
             },
-          },
-          artifacts: {
-            "base-directory": "cdk.out",
-            "files": "**/*"
-          },
-        }),
-      }),
+          }),
+        }
+      ),
       input: corePipelineSourceArtifacts,
-      outputs: [corePipelineBuildOutput]
+      outputs: [corePipelineBuildOutput],
     });
 
     // AirportMgr build action
-    const airportMgrBuildOutput = new codePipeline.Artifact("AirportMgrBuildArtifact");
+    const airportMgrBuildOutput = new codePipeline.Artifact(
+      "AirportMgrBuildArtifact"
+    );
     const airportMgrBuildAction = new codePipelineActions.CodeBuildAction({
       actionName: `${appName}AirportMgr-CodeBuild`,
-      project: new codeBuild.PipelineProject(this, `${appName}AirportMgr-PipelineProject`, {
-        projectName: `${appName}AirportMgr-PipelineProject`,
-        buildSpec: codeBuild.BuildSpec.fromObject({
-          version: "0.2",
-          phases: {
-            install: {
-              "runtime-versions": {
-                nodejs: 14,
+      project: new codeBuild.PipelineProject(
+        this,
+        `${appName}AirportMgr-PipelineProject`,
+        {
+          projectName: `${appName}AirportMgr-PipelineProject`,
+          buildSpec: codeBuild.BuildSpec.fromObject({
+            version: "0.2",
+            phases: {
+              install: {
+                "runtime-versions": {
+                  nodejs: 14,
+                },
+                commands: ["npm ci"],
               },
-              commands: ["npm ci"],
+              build: {
+                commands: ["npm run build", "ls -Al"],
+              },
             },
-            build: {
-              commands: ["npm run build", "ls -Al"],
+            artifacts: {
+              files: "**/*",
             },
-          },
-          artifacts: {
-            "files": "**/*"
-          },
-        }),
-      }),
+          }),
+        }
+      ),
       input: airportMgrSourceArtifacts,
-      outputs: [airportMgrBuildOutput]
+      outputs: [airportMgrBuildOutput],
     });
 
     /* Pipeline Build Stage */
     corePipeline.addStage({
       stageName: "Build",
+      actions: [corePipelineBuildAction, airportMgrBuildAction],
+    });
+
+    const airportMgrLambdaCode = lambda.Code.fromCfnParameters();
+    const airportMgrStack = new AirportMgrStack(this, `${appName}-AirportMgr`, {
+      appName: `${appName}`,
+      stageName: "beta",
+      code: airportMgrLambdaCode,
+    });
+
+    corePipeline.addStage({
+      stageName: "beta",
       actions: [
-        corePipelineBuildAction,
-        airportMgrBuildAction
+        new codePipelineActions.CloudFormationCreateUpdateStackAction({
+          actionName: `${appName}-AirportMgr`,
+          templatePath: corePipelineBuildOutput.atPath(
+            `${airportMgrStack.artifactId}.template.json`
+          ),
+          stackName: `${appName}-AirportMgr`,
+          adminPermissions: true,
+          parameterOverrides: airportMgrLambdaCode.assign(
+            airportMgrBuildOutput.s3Location
+          ),
+          extraInputs: [airportMgrBuildOutput],
+        }),
       ],
     });
   }
