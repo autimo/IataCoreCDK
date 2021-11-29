@@ -34,7 +34,59 @@ export class AirportMgrStack extends Stack {
         role: createAirportLambdaExecutionRole,
         code: props.code,
         handler: "src/create-airport/createAirport.handler",
-        runtime: Runtime.NODEJS_12_X,
+        runtime: Runtime.NODEJS_14_X,
+      }
+    );
+
+    const updateAirportLambdaExecutionRole = new Role(
+      this,
+      `${props.appName}-UpdateAirportLambda-ExecutionRole-${props.stageName}`,
+      {
+        roleName: `${props.appName}-UpdateAirportLambda-ExecutionRole-${props.stageName}`,
+        assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+        managedPolicies: [
+          ManagedPolicy.fromAwsManagedPolicyName(
+            "service-role/AWSLambdaBasicExecutionRole"
+          ),
+        ],
+      }
+    );
+
+    const updateAirportLambda = new Function(
+      this,
+      `${props.appName}-UpdateAirportLambda`,
+      {
+        functionName: `${props.appName}-UpdateAirportLambda`,
+        role: updateAirportLambdaExecutionRole,
+        code: props.code,
+        handler: "src/update-airport/updateAirport.handler",
+        runtime: Runtime.NODEJS_14_X,
+      }
+    );
+
+    const deleteAirportLambdaExecutionRole = new Role(
+      this,
+      `${props.appName}-DeleteAirportLambda-ExecutionRole-${props.stageName}`,
+      {
+        roleName: `${props.appName}-DeleteAirportLambda-ExecutionRole-${props.stageName}`,
+        assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+        managedPolicies: [
+          ManagedPolicy.fromAwsManagedPolicyName(
+            "service-role/AWSLambdaBasicExecutionRole"
+          ),
+        ],
+      }
+    );
+
+    const deleteAirportLambda = new Function(
+      this,
+      `${props.appName}-DeleteAirportLambda`,
+      {
+        functionName: `${props.appName}-DeleteAirportLambda`,
+        role: deleteAirportLambdaExecutionRole,
+        code: props.code,
+        handler: "src/delete-airport/deleteAirport.handler",
+        runtime: Runtime.NODEJS_14_X,
       }
     );
   }
