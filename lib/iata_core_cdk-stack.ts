@@ -34,12 +34,25 @@ export class IataCoreCdkStack extends cdk.Stack {
       trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
     });
 
+    const airportMgrSourceArtifacts = new codePipeline.Artifact();
+    const airportMgrSourceAction = new codePipelineActions.GitHubSourceAction({
+      actionName: `${appName}AirportMgr-GitHub`,
+      owner: "unoah",
+      repo: "IataAirportMgr",
+      branch: "main",
+      oauthToken: cdk.SecretValue.secretsManager("github-token"),
+      output: airportMgrSourceArtifacts,
+      trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
+    })
+
     /* Pipeline Source Stage */
     corePipeline.addStage({
       stageName: "Source",
-      actions: [corePipelineSourceAction],
+      actions: [
+        corePipelineSourceAction,
+        airportMgrSourceAction
+      ],
     });
-
 
     /* Pipeline Build Stage Actions */
     // Pipeline build action
@@ -77,11 +90,41 @@ export class IataCoreCdkStack extends cdk.Stack {
       outputs: [corePipelineBuildOutput]
     });
 
+    // AirportMgr build action
+    const airportMgrBuildOutput = new codePipeline.Artifact("AirportMgrBuildArtifact");
+    const airportMgrBuildAction = new codePipelineActions.CodeBuildAction({
+      actionName: `${appName}AirportMgr-CodeBuild`,
+      project: new codeBuild.PipelineProject(this, `${appName}AirportMgr-PipelineProject`, {
+        projectName: `${appName}AirportMgr-PipelineProject`,
+        buildSpec: codeBuild.BuildSpec.fromObject({
+          version: "0.2",
+          phases: {
+            install: {
+              "runtime-versions": {
+                nodejs: 14,
+              },
+              commands: ["npm ci"],
+            },
+            build: {
+              commands: ["npm run build", "ls -Al"],
+            },
+          },
+          artifacts: {
+            "files": "**/*"
+          },
+        }),
+      }),
+      input: airportMgrSourceArtifacts,
+      outputs: [airportMgrBuildOutput]
+    });
 
     /* Pipeline Build Stage */
     corePipeline.addStage({
       stageName: "Build",
-      actions: [corePipelineBuildAction],
+      actions: [
+        corePipelineBuildAction,
+        airportMgrBuildAction
+      ],
     });
   }
 }
