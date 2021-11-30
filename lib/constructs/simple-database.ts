@@ -11,10 +11,11 @@ interface SimpleDatabaseProps extends StackProps {
 }
 
 export class SimpleDatabase extends Construct {
+  readonly simpleDatabaseTable: Table;
   constructor(scope: Construct, id: string, props: SimpleDatabaseProps) {
     super(scope, id);
 
-    const simpleDatabaseTable = new Table(
+    this.simpleDatabaseTable = new Table(
       this,
       `${props.tableNamePrefix}-${props.stageName}-dynamodb`,
       {

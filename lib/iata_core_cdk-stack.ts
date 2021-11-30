@@ -49,10 +49,25 @@ export class IataCoreCdkStack extends cdk.Stack {
       trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
     });
 
+    const airlineMgrSourceArtifacts = new codePipeline.Artifact();
+    const airlineMgrSourceAction = new codePipelineActions.GitHubSourceAction({
+      actionName: `${appName}AirlineMgr-GitHub`,
+      owner: "unoah",
+      repo: "IataAirlineMgr",
+      branch: "main",
+      oauthToken: cdk.SecretValue.secretsManager("github-token"),
+      output: airlineMgrSourceArtifacts,
+      trigger: codePipelineActions.GitHubTrigger.WEBHOOK,
+    });
+
     /* Pipeline Source Stage */
     corePipeline.addStage({
       stageName: "Source",
-      actions: [corePipelineSourceAction, airportMgrSourceAction],
+      actions: [
+        corePipelineSourceAction,
+        airportMgrSourceAction,
+        airlineMgrSourceAction,
+      ],
     });
 
     /* Pipeline Build Stage Actions */
@@ -131,10 +146,48 @@ export class IataCoreCdkStack extends cdk.Stack {
       outputs: [airportMgrBuildOutput],
     });
 
+    // AirlineMgr build action
+    const airlineMgrBuildOutput = new codePipeline.Artifact(
+      "AirlineMgrBuildArtifact"
+    );
+    const airlineMgrBuildAction = new codePipelineActions.CodeBuildAction({
+      actionName: `${appName}AirlineMgr-CodeBuild`,
+      project: new codeBuild.PipelineProject(
+        this,
+        `${appName}AirlineMgr-PipelineProject`,
+        {
+          projectName: `${appName}AirlineMgr-PipelineProject`,
+          buildSpec: codeBuild.BuildSpec.fromObject({
+            version: "0.2",
+            phases: {
+              install: {
+                "runtime-versions": {
+                  nodejs: 14,
+                },
+                commands: ["npm ci"],
+              },
+              build: {
+                commands: ["npm run build", "ls -Al"],
+              },
+            },
+            artifacts: {
+              files: "**/*",
+            },
+          }),
+        }
+      ),
+      input: airlineMgrSourceArtifacts,
+      outputs: [airlineMgrBuildOutput],
+    });
+
     /* Pipeline Build Stage */
     corePipeline.addStage({
       stageName: "Build",
-      actions: [corePipelineBuildAction, airportMgrBuildAction],
+      actions: [
+        corePipelineBuildAction,
+        airportMgrBuildAction,
+        airlineMgrBuildAction,
+      ],
     });
 
     const airportDataStack = new AirportDataStack(
@@ -152,7 +205,12 @@ export class IataCoreCdkStack extends cdk.Stack {
       appName: `${appName}`,
       stageName: "beta",
       code: airportMgrLambdaCode,
+      airportLiveDataTableArn:
+        airportDataStack.liveDataSimpleDatabase.simpleDatabaseTable.tableArn,
+      airportRunwayImageBucket:
+        airportDataStack.runwayImages.simpleBucket.bucketName,
     });
+    airportMgrStack.addDependency(airportDataStack);
 
     corePipeline.addStage({
       stageName: "beta",

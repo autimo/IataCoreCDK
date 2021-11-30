@@ -12,7 +12,7 @@ export class AirportDataStack extends Stack {
   readonly liveDataSimpleDatabase: SimpleDatabase;
   readonly runwayImages: SimpleBucket;
 
-  constructor(scope: Construct, id: string, props: AirportDataStackProps) {
+  constructor(scope: Stack, id: string, props: AirportDataStackProps) {
     super(scope, id);
 
     this.liveDataSimpleDatabase = new SimpleDatabase(
