@@ -4,6 +4,7 @@ import * as codeBuild from "@aws-cdk/aws-codebuild";
 import * as codePipelineActions from "@aws-cdk/aws-codepipeline-actions";
 import * as lambda from "@aws-cdk/aws-lambda";
 import { AirportMgrStack } from "./airport-mgr";
+import { AirportDataStack } from "./airport-data";
 
 export class IataCoreCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -136,6 +137,16 @@ export class IataCoreCdkStack extends cdk.Stack {
       actions: [corePipelineBuildAction, airportMgrBuildAction],
     });
 
+    const airportDataStack = new AirportDataStack(
+      this,
+      `${appName}-AirportData`,
+      {
+        appName: `${appName}`,
+        stageName: "beta",
+        region: `us-east-1`,
+      }
+    );
+
     const airportMgrLambdaCode = lambda.Code.fromCfnParameters();
     const airportMgrStack = new AirportMgrStack(this, `${appName}-AirportMgr`, {
       appName: `${appName}`,
@@ -146,6 +157,14 @@ export class IataCoreCdkStack extends cdk.Stack {
     corePipeline.addStage({
       stageName: "beta",
       actions: [
+        new codePipelineActions.CloudFormationCreateUpdateStackAction({
+          actionName: `${appName}-AirportData`,
+          templatePath: corePipelineBuildOutput.atPath(
+            `${airportDataStack.artifactId}.template.json`
+          ),
+          stackName: `${appName}-AirportData`,
+          adminPermissions: true,
+        }),
         new codePipelineActions.CloudFormationCreateUpdateStackAction({
           actionName: `${appName}-AirportMgr`,
           templatePath: corePipelineBuildOutput.atPath(
