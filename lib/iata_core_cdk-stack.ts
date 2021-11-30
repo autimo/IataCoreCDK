@@ -5,6 +5,7 @@ import * as codePipelineActions from "@aws-cdk/aws-codepipeline-actions";
 import * as lambda from "@aws-cdk/aws-lambda";
 import { AirportMgrStack } from "./airport-mgr";
 import { AirportDataStack } from "./airport-data";
+import { AirlineMgrStack } from "./airline-mgr";
 
 export class IataCoreCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -212,6 +213,13 @@ export class IataCoreCdkStack extends cdk.Stack {
     });
     airportMgrStack.addDependency(airportDataStack);
 
+    const airlineMgrLambdaCode = lambda.Code.fromCfnParameters();
+    const airlineMgrStack = new AirlineMgrStack(this, `${appName}-AirlineMgr`, {
+      appName: `${appName}`,
+      stageName: "beta",
+      code: airlineMgrLambdaCode,
+    });
+
     corePipeline.addStage({
       stageName: "beta",
       actions: [
@@ -234,6 +242,18 @@ export class IataCoreCdkStack extends cdk.Stack {
             airportMgrBuildOutput.s3Location
           ),
           extraInputs: [airportMgrBuildOutput],
+        }),
+        new codePipelineActions.CloudFormationCreateUpdateStackAction({
+          actionName: `${appName}-AirlineMgr`,
+          templatePath: corePipelineBuildOutput.atPath(
+            `${airlineMgrStack.artifactId}.template.json`
+          ),
+          stackName: `${appName}-AirlineMgr`,
+          adminPermissions: true,
+          parameterOverrides: airlineMgrLambdaCode.assign(
+            airlineMgrBuildOutput.s3Location
+          ),
+          extraInputs: [airlineMgrBuildOutput],
         }),
       ],
     });
